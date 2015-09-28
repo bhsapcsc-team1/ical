@@ -1,26 +1,27 @@
 var UUID = require('node-uuid');
+var moment = require('moment-timezone');
 
 (function(name, definition) {
 
-/****************
- *  A tolerant, minimal icalendar parser
- *  (http://tools.ietf.org/html/rfc5545)
- *
- *  <peterbraden@peterbraden.co.uk>
- * **************/
+  /****************
+   *  A tolerant, minimal icalendar parser
+   *  (http://tools.ietf.org/html/rfc5545)
+   *
+   *  <peterbraden@peterbraden.co.uk>
+   * **************/
 
   if (typeof module !== 'undefined') {
     module.exports = definition();
-  } else if (typeof define === 'function' && typeof define.amd === 'object'){
+  } else if (typeof define === 'function' && typeof define.amd === 'object') {
     define(definition);
   } else {
     this[name] = definition();
   }
 
-}('ical', function(){
+}('ical', function() {
 
-   // Unescape Text re RFC 4.3.11
-  var text = function(t){
+  // Unescape Text re RFC 4.3.11
+  var text = function(t) {
     return (t
       .replace(/\\\,/g, ',')
       .replace(/\\\;/g, ';')
@@ -29,36 +30,40 @@ var UUID = require('node-uuid');
     )
   }
 
-  var parseParams = function(p){
+  var parseParams = function(p) {
+    console.log('parseParams');
+    console.log('p', p);
     var out = {}
-    for (var i = 0; i<p.length; i++){
-      if (p[i].indexOf('=') > -1){
-        var segs = p[i].split('=')
-          , out = {}
-        if (segs.length == 2){
+    for (var i = 0; i < p.length; i++) {
+      if (p[i].indexOf('=') > -1) {
+        var segs = p[i].split('='),
+          out = {}
+        if (segs.length == 2) {
           out[segs[0]] = segs[1]
         }
       }
     }
-    return out || sp
+    return out || p
   }
 
-  var storeParam = function(name){
-    return function(val, params, curr){
-      if (params && params.length && !(params.length==1 && params[0]==='CHARSET=utf-8')){
-        curr[name] = {params:params, val:text(val)}
-      }
-      else
+  var storeParam = function(name) {
+    return function(val, params, curr) {
+      if (params && params.length && !(params.length == 1 && params[0] === 'CHARSET=utf-8')) {
+        curr[name] = {
+          params: params,
+          val: text(val)
+        }
+      } else
         curr[name] = text(val)
 
       return curr
     }
   };
 
-  var addTZ = function(dateObj, params){
+  var addTZ = function(dateObj, params) {
     var p = parseParams(params);
 
-    if (params && p && dateObj){
+    if (params && p && dateObj) {
       dateObj.tz = p.TZID
     }
 
@@ -74,7 +79,6 @@ var UUID = require('node-uuid');
    */
   function parseDate(val, params, curr) {
     var objToReturn = val;
-
     if (params && params[0] === "VALUE=DATE") {
       // Just Date
 
@@ -83,10 +87,9 @@ var UUID = require('node-uuid');
         // No TZ info - assume same timezone as this computer
         objToReturn = new Date(
           comps[1],
-            parseInt(comps[2], 10)-1,
+          parseInt(comps[2], 10) - 1,
           comps[3]
         );
-
         return addTZ(objToReturn, params);
       }
     }
@@ -95,25 +98,34 @@ var UUID = require('node-uuid');
     //typical RFC date-time format
     var comps = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/.exec(val);
     if (comps !== null) {
-      if (comps[7] == 'Z'){ // GMT
+      if (comps[7] == 'Z') { // GMT
         return new Date(Date.UTC(
           parseInt(comps[1], 10),
-            parseInt(comps[2], 10)-1,
-          parseInt(comps[3], 10),
-          parseInt(comps[4], 10),
-          parseInt(comps[5], 10),
-          parseInt(comps[6], 10 )
-        ));
-        // TODO add tz
-      } else {
-        return new Date(
-          parseInt(comps[1], 10),
-            parseInt(comps[2], 10)-1,
+          parseInt(comps[2], 10) - 1,
           parseInt(comps[3], 10),
           parseInt(comps[4], 10),
           parseInt(comps[5], 10),
           parseInt(comps[6], 10)
-        );
+        ));
+        // TODO add tz
+      } else {
+        if (curr.start && curr.start.tz) {
+          return moment.tz(val, 'YYYYMMDDTHHmmss', curr.start.tz).toDate();
+        } else {
+          var p = parseParams(params);
+          if (p.TZID) {
+            return moment.tz(val, 'YYYYMMDDTHHmmss', p.TZID).toDate();
+          } else {
+            return new Date(
+              parseInt(comps[1], 10),
+              parseInt(comps[2], 10) - 1,
+              parseInt(comps[3], 10),
+              parseInt(comps[4], 10),
+              parseInt(comps[5], 10),
+              parseInt(comps[6], 10)
+            )
+          }
+        }
       }
     }
 
@@ -123,16 +135,15 @@ var UUID = require('node-uuid');
       // No TZ info - assume same timezone as this computer
       objToReturn = new Date(
         comps[1],
-        parseInt(comps[2], 10)-1,
+        parseInt(comps[2], 10) - 1,
         comps[3]
       );
-
       return addTZ(objToReturn, params);
     }
   }
 
-  var dateParam = function(name){
-    return function(val, params, curr){
+  var dateParam = function(name) {
+    return function(val, params, curr) {
       var dateObj = parseDate(val, params, curr);
       dateObj = addTZ(dateObj, params);
       if (dateObj) {
@@ -158,36 +169,39 @@ var UUID = require('node-uuid');
 
   };
 
-  var geoParam = function(name){
-    return function(val, params, curr){
+  var geoParam = function(name) {
+    return function(val, params, curr) {
       storeParam(val, params, curr)
       var parts = val.split(';');
-      curr[name] = {lat:Number(parts[0]), lon:Number(parts[1])};
+      curr[name] = {
+        lat: Number(parts[0]),
+        lon: Number(parts[1])
+      };
       return curr
     }
   }
 
-  var categoriesParam = function (name) {
+  var categoriesParam = function(name) {
     var separatorPattern = /\s*,\s*/g;
-    return function (val, params, curr) {
+    return function(val, params, curr) {
       storeParam(val, params, curr)
       curr[name] = val ? val.split(separatorPattern) : []
       return curr
     }
   }
 
-  var addFBType = function(fb, params){
+  var addFBType = function(fb, params) {
     var p = parseParams(params);
 
-    if (params && p){
+    if (params && p) {
       fb.type = p.FBTYPE || "BUSY"
     }
 
     return fb;
   }
 
-  var freebusyParam = function (name) {
-    return function(val, params, curr){
+  var freebusyParam = function(name) {
+    return function(val, params, curr) {
       var fb = addFBType({}, params);
       curr[name] = curr[name] || []
       curr[name].push(fb);
@@ -196,7 +210,7 @@ var UUID = require('node-uuid');
 
       var parts = val.split('/');
 
-      ['start', 'end'].forEach(function (name, index) {
+      ['start', 'end'].forEach(function(name, index) {
         dateParam(name)(parts[index], params, fb);
       });
 
@@ -207,90 +221,95 @@ var UUID = require('node-uuid');
   return {
 
 
-    objectHandlers : {
-      'BEGIN' : function(component, params, curr, stack){
-          stack.push(curr)
+    objectHandlers: {
+      'BEGIN': function(component, params, curr, stack) {
+        stack.push(curr)
 
-          return {type:component, params:params}
+        return {
+          type: component,
+          params: params
         }
+      }
 
-      , 'END' : function(component, params, curr, stack){
+      ,
+      'END': function(component, params, curr, stack) {
         // prevents the need to search the root of the tree for the VCALENDAR object
         if (component === "VCALENDAR") {
-            //scan all high level object in curr and drop all strings
-            var key,
-                obj;
-            
-            for (key in curr) {
-                if(curr.hasOwnProperty(key)) {
-                   obj = curr[key];
-                   if (typeof obj === 'string') {
-                       delete curr[key];
-                   }
-                }
+          //scan all high level object in curr and drop all strings
+          var key,
+            obj;
+
+          for (key in curr) {
+            if (curr.hasOwnProperty(key)) {
+              obj = curr[key];
+              if (typeof obj === 'string') {
+                delete curr[key];
+              }
             }
-            
-            return curr
+          }
+
+          return curr
         }
-        
+
         var par = stack.pop()
         par[UUID.v4()] = curr;
 
         return par
       }
 
-      , 'SUMMARY' : storeParam('summary')
-      , 'DESCRIPTION' : storeParam('description')
-      , 'URL' : storeParam('url')
-      , 'UID' : storeParam('uid')
-      , 'LOCATION' : storeParam('location')
-      , 'DTSTART' : dateParam('start')
-      , 'DTEND' : dateParam('end')
-      ,' CLASS' : storeParam('class')
-      , 'TRANSP' : storeParam('transparency')
-      , 'GEO' : geoParam('geo')
-      , 'PERCENT-COMPLETE': storeParam('completion')
-      , 'COMPLETED': dateParam('completed')
-      , 'CATEGORIES': categoriesParam('categories')
-      , 'FREEBUSY': freebusyParam('freebusy')
-      , 'EXDATE': dateParamArray('exdate')
-      , 'RECURRENCE-ID': storeParam('recurrenceId')
+      ,
+      'SUMMARY': storeParam('summary'),
+      'DESCRIPTION': storeParam('description'),
+      'URL': storeParam('url'),
+      'UID': storeParam('uid'),
+      'LOCATION': storeParam('location'),
+      'DTSTART': dateParam('start'),
+      'DTEND': dateParam('end'),
+      ' CLASS': storeParam('class'),
+      'TRANSP': storeParam('transparency'),
+      'GEO': geoParam('geo'),
+      'PERCENT-COMPLETE': storeParam('completion'),
+      'COMPLETED': dateParam('completed'),
+      'CATEGORIES': categoriesParam('categories'),
+      'FREEBUSY': freebusyParam('freebusy'),
+      'EXDATE': dateParamArray('exdate'),
+      'RECURRENCE-ID': storeParam('recurrenceId')
     },
 
 
-    handleObject : function(name, val, params, ctx, stack, line){
+    handleObject: function(name, val, params, ctx, stack, line) {
       var self = this
 
-      if(self.objectHandlers[name])
+      if (self.objectHandlers[name])
         return self.objectHandlers[name](val, params, ctx, stack, line)
 
       //handling custom properties
-      if(name.match(/X\-[\w\-]+/) && stack.length > 0) {
-          //trimming the leading and perform storeParam
-          name = name.substring(2);
-          return (storeParam(name))(val, params, ctx, stack, line);
+      if (name.match(/X\-[\w\-]+/) && stack.length > 0) {
+        //trimming the leading and perform storeParam
+        name = name.substring(2);
+        return (storeParam(name))(val, params, ctx, stack, line);
       }
-      
+
       return storeParam(name.toLowerCase())(val, params, ctx);
     },
 
 
-    parseICS : function(str){
+    parseICS: function(str) {
       var self = this
       var lines = str.split(/\r?\n/)
       var ctx = {}
       var stack = []
 
-      for (var i = 0, ii = lines.length, l = lines[0]; i<ii; i++, l=lines[i]){
+      for (var i = 0, ii = lines.length, l = lines[0]; i < ii; i++, l = lines[i]) {
         //Unfold : RFC#3.1
-        while (lines[i+1] && /[ \t]/.test(lines[i+1][0])) {
-          l += lines[i+1].slice(1)
+        while (lines[i + 1] && /[ \t]/.test(lines[i + 1][0])) {
+          l += lines[i + 1].slice(1)
           i += 1
         }
 
         var kv = l.split(":")
 
-        if (kv.length < 2){
+        if (kv.length < 2) {
           // Invalid line - must have k&v
           continue;
         }
@@ -298,19 +317,19 @@ var UUID = require('node-uuid');
         // Although the spec says that vals with colons should be quote wrapped
         // in practise nobody does, so we assume further colons are part of the
         // val
-        var value = kv.slice(1).join(":")
-          , kp = kv[0].split(";")
-          , name = kp[0]
-          , params = kp.slice(1)
+        var value = kv.slice(1).join(":"),
+          kp = kv[0].split(";"),
+          name = kp[0],
+          params = kp.slice(1)
 
         ctx = self.handleObject(name, value, params, ctx, stack, l) || {}
       }
 
-       // type and params are added to the list of items, get rid of them.
-       delete ctx.type
-       delete ctx.params
+      // type and params are added to the list of items, get rid of them.
+      delete ctx.type
+      delete ctx.params
 
-       return ctx
+      return ctx
     }
 
   }
