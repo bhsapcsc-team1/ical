@@ -31,8 +31,6 @@ var moment = require('moment-timezone');
   }
 
   var parseParams = function(p) {
-    console.log('parseParams');
-    console.log('p', p);
     var out = {}
     for (var i = 0; i < p.length; i++) {
       if (p[i].indexOf('=') > -1) {
