@@ -82,7 +82,6 @@ var moment = require('moment-timezone');
 
       var comps = /^(\d{4})(\d{2})(\d{2})$/.exec(val);
       if (comps !== null) {
-        // No TZ info - assume same timezone as this computer
         objToReturn = new Date(
           comps[1],
           parseInt(comps[2], 10) - 1,
@@ -91,7 +90,6 @@ var moment = require('moment-timezone');
         return addTZ(objToReturn, params);
       }
     }
-
 
     //typical RFC date-time format
     var comps = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/.exec(val);
@@ -105,7 +103,6 @@ var moment = require('moment-timezone');
           parseInt(comps[5], 10),
           parseInt(comps[6], 10)
         ));
-        // TODO add tz
       } else {
         if (curr.start && curr.start.tz) {
           return moment.tz(val, 'YYYYMMDDTHHmmss', curr.start.tz).toDate();
@@ -130,7 +127,6 @@ var moment = require('moment-timezone');
     // date format (no time)
     comps = /^(\d{4})(\d{2})(\d{2})$/.exec(val);
     if (comps !== null) {
-      // No TZ info - assume same timezone as this computer
       objToReturn = new Date(
         comps[1],
         parseInt(comps[2], 10) - 1,
@@ -263,7 +259,7 @@ var moment = require('moment-timezone');
       'LOCATION': storeParam('location'),
       'DTSTART': dateParam('start'),
       'DTEND': dateParam('end'),
-      ' CLASS': storeParam('class'),
+      'CLASS': storeParam('class'),
       'TRANSP': storeParam('transparency'),
       'GEO': geoParam('geo'),
       'PERCENT-COMPLETE': storeParam('completion'),
